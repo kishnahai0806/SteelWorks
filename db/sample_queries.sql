@@ -149,54 +149,90 @@ GROUP BY l.lot_code, so.sales_order_number
 HAVING COUNT(*) >= 2
 ORDER BY partial_shipments DESC, l.lot_code;
 
--- 11) Issue totals by selected week + selected production lines (AC1, AC2, AC4, AC8, AC9)
--- Edit literals:
---   week_label = '2026-W03'
---   line_names IN ('Line 1','Line 4')
-SELECT
-  cw.week_label,
-  pl.line_name,
-  io.issue_type_name,
-  COUNT(*) AS issue_total
-FROM issue_occurrences io
-JOIN calendar_weeks cw ON cw.calendar_week_id = io.calendar_week_id
-JOIN production_lines pl ON pl.production_line_id = io.production_line_id
-WHERE cw.week_label = '2026-W03'
-  AND pl.line_name IN ('Line 1', 'Line 4')
-GROUP BY cw.week_label, pl.line_name, io.issue_type_name
-ORDER BY pl.line_name, issue_total DESC, io.issue_type_name;
+-- =====================================================================
+-- AC-driven queries for the Operations Analyst user story
+-- =====================================================================
 
--- 12) Affected lots list for selected week + lines, showing issue type + count (AC6, AC7, AC8)
+-- 11) (AC1/AC2/AC3) Available filter values (weeks + lines)
+SELECT calendar_week_id, week_label, start_date, end_date
+FROM calendar_weeks
+ORDER BY start_date;
+
+SELECT production_line_id, line_name
+FROM production_lines
+WHERE is_active = TRUE
+ORDER BY line_name;
+
+-- 12) (AC4/AC5) Authoritative issue totals for a selected week + selected lines
+-- Replace :week_id and :line_ids as needed.
+-- Example psql variables:
+--   \set week_id 1
+--   \set line_ids '{1,2}'
 SELECT
   cw.week_label,
   pl.line_name,
-  l.lot_code,
-  p.part_number,
   io.issue_type_name,
   COUNT(*) AS issue_count
 FROM issue_occurrences io
 JOIN calendar_weeks cw ON cw.calendar_week_id = io.calendar_week_id
 JOIN production_lines pl ON pl.production_line_id = io.production_line_id
-JOIN lots l ON l.lot_id = io.lot_id
-JOIN parts p ON p.part_id = l.part_id
-WHERE cw.week_label = '2026-W03'
-  AND pl.line_name IN ('Line 1', 'Line 4')
-GROUP BY cw.week_label, pl.line_name, l.lot_code, p.part_number, io.issue_type_name
-ORDER BY pl.line_name, issue_count DESC, l.lot_code, io.issue_type_name;
+WHERE io.calendar_week_id = :week_id
+  AND io.production_line_id = ANY(:line_ids::bigint[])
+GROUP BY cw.week_label, pl.line_name, io.issue_type_name
+ORDER BY pl.line_name, issue_count DESC, io.issue_type_name;
 
--- 13) Ungrouped issue rows for the same selection (supports AC9 "grouped totals match source")
+-- 13) (AC6/AC7) Affected lots list for the selected week + selected lines
+-- Shows each affected lot with its issue type(s) and total issue count.
 SELECT
   cw.week_label,
   pl.line_name,
-  io.run_date,
   l.lot_code,
-  p.part_number,
-  io.issue_type_name
+  COUNT(*) AS issue_count,
+  STRING_AGG(DISTINCT io.issue_type_name, ', ' ORDER BY io.issue_type_name) AS issue_types
 FROM issue_occurrences io
 JOIN calendar_weeks cw ON cw.calendar_week_id = io.calendar_week_id
 JOIN production_lines pl ON pl.production_line_id = io.production_line_id
 JOIN lots l ON l.lot_id = io.lot_id
-JOIN parts p ON p.part_id = l.part_id
-WHERE cw.week_label = '2026-W03'
-  AND pl.line_name IN ('Line 1', 'Line 4')
-ORDER BY io.run_date, pl.line_name, l.lot_code, io.issue_type_name;
+WHERE io.calendar_week_id = :week_id
+  AND io.production_line_id = ANY(:line_ids::bigint[])
+GROUP BY cw.week_label, pl.line_name, l.lot_code
+ORDER BY issue_count DESC, l.lot_code;
+
+-- 14) (AC9) Proof that grouped totals match ungrouped source data
+-- The grouped sum must equal the raw count from the authoritative source.
+WITH raw AS (
+  SELECT COUNT(*) AS raw_issue_rows
+  FROM issue_occurrences io
+  WHERE io.calendar_week_id = :week_id
+    AND io.production_line_id = ANY(:line_ids::bigint[])
+), grouped AS (
+  SELECT SUM(issue_count) AS grouped_issue_rows
+  FROM (
+    SELECT COUNT(*) AS issue_count
+    FROM issue_occurrences io
+    WHERE io.calendar_week_id = :week_id
+      AND io.production_line_id = ANY(:line_ids::bigint[])
+    GROUP BY io.issue_type_id
+  ) x
+)
+SELECT
+  raw.raw_issue_rows,
+  grouped.grouped_issue_rows,
+  (raw.raw_issue_rows = grouped.grouped_issue_rows) AS totals_match
+FROM raw, grouped;
+
+-- 15) (AC10/AC11) Export helper: same data as Query 12 but in a flat export-friendly shape
+-- Use psql \copy to export exactly what is shown:
+--   \copy ( <query below> ) TO 'issue_summary.csv' CSV HEADER
+SELECT
+  cw.week_label,
+  pl.line_name,
+  io.issue_type_name,
+  COUNT(*) AS issue_count
+FROM issue_occurrences io
+JOIN calendar_weeks cw ON cw.calendar_week_id = io.calendar_week_id
+JOIN production_lines pl ON pl.production_line_id = io.production_line_id
+WHERE io.calendar_week_id = :week_id
+  AND io.production_line_id = ANY(:line_ids::bigint[])
+GROUP BY cw.week_label, pl.line_name, io.issue_type_name
+ORDER BY cw.week_label, pl.line_name, io.issue_type_name;

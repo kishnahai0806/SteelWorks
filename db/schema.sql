@@ -213,26 +213,4 @@ CREATE INDEX idx_shipments_on_hold
 
 CREATE INDEX idx_sales_orders_customer_id ON sales_orders(customer_id);
 
-
--- Authoritative source for issue reporting (single place to count issues)
--- This view prevents "conflicting calculations" by standardizing joins and filters.
-CREATE OR REPLACE VIEW issue_occurrences AS
-SELECT
-  pr.production_run_id,
-  pr.run_date,
-  pr.calendar_week_id,
-  pr.production_line_id,
-  pr.shift_id,
-  pr.lot_id,
-  pi.issue_type_id,
-  it.issue_type_name,
-  pi.supervisor_notes
-FROM production_issues pi
-JOIN production_runs pr ON pr.production_run_id = pi.production_run_id
-JOIN issue_types it ON it.issue_type_id = pi.issue_type_id;
-
--- Indexes tuned for the AC-driven filters (week + one/many lines)
-CREATE INDEX idx_production_runs_week_line ON production_runs(calendar_week_id, production_line_id);
-CREATE INDEX idx_production_issues_issue_type_id ON production_issues(issue_type_id);
-
 COMMIT;
