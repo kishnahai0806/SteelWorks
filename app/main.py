@@ -15,17 +15,38 @@ Complexity:
 
 from __future__ import annotations
 
+import os
+import sys
+
 import pandas as pd
 import streamlit as st
 
-from app.db import resolve_database_url
-from app.service import (
-    dataframe_to_csv_bytes,
-    fetch_affected_lots,
-    fetch_issue_summary,
-    get_filter_options,
-    validate_group_totals,
-)
+try:
+    from app.db import resolve_database_url
+    from app.service import (
+        dataframe_to_csv_bytes,
+        fetch_affected_lots,
+        fetch_issue_summary,
+        get_filter_options,
+        validate_group_totals,
+    )
+except ModuleNotFoundError:
+    # Fallback for execution contexts where only `app/` is on sys.path
+    # (for example, certain IDE run configurations).
+    # Time complexity: O(1), Space complexity: O(1).
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    repo_root = os.path.dirname(current_dir)
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
+
+    from app.db import resolve_database_url
+    from app.service import (
+        dataframe_to_csv_bytes,
+        fetch_affected_lots,
+        fetch_issue_summary,
+        get_filter_options,
+        validate_group_totals,
+    )
 
 
 def _format_week_option(week_row: pd.Series) -> str:
@@ -76,19 +97,11 @@ def main() -> None:
         "Metrics are computed only from the authoritative database view "
         "`issue_occurrences`."
     )
-
-    with st.sidebar:
-        st.header("Connection")
-        # Password masking reduces accidental exposure during screen sharing.
-        database_url_input = st.text_input(
-            "DATABASE_URL",
-            value="",
-            type="password",
-            help="Use your Render PostgreSQL URL, e.g. postgresql://.../?sslmode=require",
-        )
+    st.caption("Database connection is loaded automatically from `.env` / `DATABASE_URL`.")
 
     try:
-        database_url = resolve_database_url(database_url_input)
+        # Resolve from shell environment or project `.env`; no UI input required.
+        database_url = resolve_database_url(None)
     except ValueError as exc:
         st.info(str(exc))
         st.stop()
@@ -97,42 +110,43 @@ def main() -> None:
     weeks_df, lines_df = get_filter_options(database_url)
     _ensure_non_empty_filters(weeks_df, lines_df)
 
-    with st.sidebar:
-        st.header("Filters")
+    st.subheader("Filters")
 
-        # Build display strings and a reverse map to the canonical week ID.
-        week_display_values = weeks_df.apply(_format_week_option, axis=1).tolist()
-        week_lookup = {
-            display_text: int(week_id)
-            for display_text, week_id in zip(
-                week_display_values,
-                weeks_df["calendar_week_id"],
-                strict=True,
-            )
-        }
+    # Build display strings and a reverse map to the canonical week ID.
+    week_display_values = weeks_df.apply(_format_week_option, axis=1).tolist()
+    week_lookup = {
+        display_text: int(week_id)
+        for display_text, week_id in zip(
+            week_display_values,
+            weeks_df["calendar_week_id"],
+            strict=True,
+        )
+    }
+
+    line_name_to_id = {
+        str(line_name): int(line_id)
+        for line_name, line_id in zip(
+            lines_df["line_name"],
+            lines_df["production_line_id"],
+            strict=True,
+        )
+    }
+    all_line_names = list(line_name_to_id.keys())
+
+    week_col, line_col, grouping_col = st.columns([2, 3, 2])
+    with week_col:
         selected_week_display = st.selectbox(
             "Production Week",
             options=week_display_values,
             index=0,
         )
-        selected_week_id = week_lookup[selected_week_display]
-
-        line_name_to_id = {
-            str(line_name): int(line_id)
-            for line_name, line_id in zip(
-                lines_df["line_name"],
-                lines_df["production_line_id"],
-                strict=True,
-            )
-        }
-        all_line_names = list(line_name_to_id.keys())
+    with line_col:
         selected_line_names = st.multiselect(
             "Production Lines",
             options=all_line_names,
             default=all_line_names,
         )
-        selected_line_ids = [line_name_to_id[line_name] for line_name in selected_line_names]
-
+    with grouping_col:
         grouping_mode = st.radio(
             "Summary Grouping",
             options=[
@@ -141,7 +155,10 @@ def main() -> None:
             ],
             index=0,
         )
-        group_by_line = grouping_mode == "By production line and issue type"
+
+    selected_week_id = week_lookup[selected_week_display]
+    selected_line_ids = [line_name_to_id[line_name] for line_name in selected_line_names]
+    group_by_line = grouping_mode == "By production line and issue type"
 
     if not selected_line_ids:
         st.warning("Select at least one production line to view metrics.")
@@ -192,4 +209,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

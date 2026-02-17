@@ -20,11 +20,88 @@ from __future__ import annotations
 
 import os
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any, Generator, Sequence
+from urllib.parse import urlsplit
 
 import pandas as pd
 import psycopg
 from psycopg.rows import dict_row
+
+_ENV_LOADED = False
+_ENV_DATABASE_URL: str | None = None
+
+
+def _load_database_url_from_dotenv() -> str | None:
+    """
+    Load `DATABASE_URL` from project `.env` file.
+
+    Behavior:
+    - Reads only project-root `.env` (next to README/db/app folders).
+    - Parses `KEY=VALUE` lines, ignores blank lines and comments.
+    - Caches the result after first read.
+
+    Complexity:
+    - Time: O(n) where `n` is number of lines in `.env`.
+    - Space: O(1) additional space beyond temporary line strings and one cached URL.
+    """
+    global _ENV_LOADED, _ENV_DATABASE_URL
+    if _ENV_LOADED:
+        return _ENV_DATABASE_URL
+    _ENV_LOADED = True
+
+    dotenv_path = Path(__file__).resolve().parents[1] / ".env"
+    if not dotenv_path.exists():
+        return None
+
+    # `utf-8-sig` gracefully handles UTF-8 files with BOM (common on Windows).
+    for raw_line in dotenv_path.read_text(encoding="utf-8-sig").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        normalized_key = key.strip()
+        normalized_value = value.strip().strip('"').strip("'")
+
+        if normalized_key == "DATABASE_URL" and normalized_value:
+            _ENV_DATABASE_URL = normalized_value
+            return _ENV_DATABASE_URL
+
+    return None
+
+
+def _validate_database_url(raw_url: str, source_name: str) -> str:
+    """
+    Validate URL shape early and return normalized value.
+
+    Why this helper exists:
+    - Prevent low-level socket/idna tracebacks for malformed placeholder URLs.
+    - Return clear, actionable messages to the user.
+
+    Complexity:
+    - Time: O(m) where `m` is the URL length.
+    - Space: O(1).
+    """
+    normalized_url = raw_url.strip().strip('"').strip("'")
+    if not normalized_url:
+        raise ValueError(f"DATABASE_URL from {source_name} is empty.")
+
+    parsed = urlsplit(normalized_url)
+    if parsed.scheme not in {"postgresql", "postgres"}:
+        raise ValueError(
+            f"DATABASE_URL from {source_name} must start with postgresql:// or postgres://."
+        )
+    if not parsed.hostname:
+        raise ValueError(
+            f"DATABASE_URL from {source_name} is malformed (host is missing)."
+        )
+    if "..." in normalized_url:
+        raise ValueError(
+            f"DATABASE_URL from {source_name} looks like a placeholder; replace '...' with your real host."
+        )
+
+    return normalized_url
 
 
 def resolve_database_url(override_url: str | None) -> str:
@@ -44,18 +121,23 @@ def resolve_database_url(override_url: str | None) -> str:
     - Time: O(1) because it performs constant-time string checks and one env lookup.
     - Space: O(1) because it stores only a few scalar values.
     """
-    # Prefer explicit user input so the UI can point to any environment quickly.
+    # 1) Prefer explicit user input so callers can override quickly when needed.
     candidate_url = (override_url or "").strip()
     if candidate_url:
-        return candidate_url
+        return _validate_database_url(candidate_url, "explicit input")
 
-    # Fall back to the process environment for local dev / CI convenience.
+    # 2) Prefer local `.env` value to avoid stale shell env vars overriding local setup.
+    dotenv_url = _load_database_url_from_dotenv()
+    if dotenv_url:
+        return _validate_database_url(dotenv_url, ".env")
+
+    # 3) Fall back to process env for CI / deployment.
     env_url = (os.getenv("DATABASE_URL") or "").strip()
     if env_url:
-        return env_url
+        return _validate_database_url(env_url, "process environment")
 
     raise ValueError(
-        "DATABASE_URL is not set. Provide a URL in the sidebar or export DATABASE_URL."
+        "DATABASE_URL is not set. Add it to .env or export it in your shell."
     )
 
 
@@ -124,4 +206,3 @@ def run_query(
     if not rows:
         return pd.DataFrame(columns=column_names)
     return pd.DataFrame.from_records(rows, columns=column_names)
-

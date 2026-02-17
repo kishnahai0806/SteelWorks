@@ -16,10 +16,11 @@ Complexity:
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import psycopg
+
+from app.db import resolve_database_url
 
 
 def _read_sql_file(file_path: Path) -> str:
@@ -55,9 +56,11 @@ def main() -> None:
     - Time: O(n) for reading SQL files + database execution time.
     - Space: O(n) for SQL text strings.
     """
-    database_url = (os.getenv("DATABASE_URL") or "").strip()
-    if not database_url:
-        raise RuntimeError("DATABASE_URL is not set.")
+    try:
+        # Reuse shared resolver so this script can read `.env` automatically.
+        database_url = resolve_database_url(None)
+    except ValueError as exc:
+        raise RuntimeError(str(exc)) from exc
 
     repo_root = Path(__file__).resolve().parents[1]
     schema_path = repo_root / "db" / "schema.sql"
@@ -76,4 +79,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

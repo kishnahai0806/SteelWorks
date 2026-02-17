@@ -18,7 +18,6 @@ Complexity:
 from __future__ import annotations
 
 import io
-import os
 from pathlib import Path
 
 import pandas as pd
@@ -26,6 +25,7 @@ import pandas.testing as pdt
 import psycopg
 import pytest
 
+from app.db import resolve_database_url
 from app.queries import (
     AFFECTED_LOTS_SQL,
     GROUPED_ISSUE_TOTAL_SQL,
@@ -120,10 +120,11 @@ def database_url() -> str:
     - Time: O(1)
     - Space: O(1)
     """
-    value = (os.getenv("DATABASE_URL") or "").strip()
-    if not value:
+    try:
+        # Shared resolver supports direct env var, `.env`, or explicit override.
+        return resolve_database_url(None)
+    except ValueError:
         pytest.skip("DATABASE_URL is not set; skipping integration tests.")
-    return value
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -372,4 +373,3 @@ def test_ac10_and_ac11_export_matches_screen_data(database_url: str) -> None:
         _normalize_dataframe_for_compare(affected_roundtrip),
         check_dtype=False,
     )
-

@@ -24,6 +24,19 @@ All issue metrics shown in UI and tests are derived from `issue_occurrences` to 
 
 ### 2) Configure database connection
 
+Recommended (one-time local setup):
+
+1. Create a `.env` file in the project root.
+2. Set your real Render URL:
+
+```env
+DATABASE_URL=postgresql://user:password@host:5432/dbname?sslmode=require
+```
+
+The app, bootstrap script, and tests automatically read `.env`.
+
+Alternative (temporary per-terminal session):
+
 PowerShell:
 
 ```powershell
@@ -64,13 +77,13 @@ This applies, in order:
 streamlit run app/main.py
 ```
 
-If `DATABASE_URL` is not set in your shell, paste it into the sidebar field in the app.
+If `.env` and shell env are both missing, the app will stop and prompt you to set `DATABASE_URL`.
 
 ## Usage Examples
 
 ### Example 1: Filter and compare issue metrics
 
-1. In sidebar, choose `Production Week = 2026-W04`.
+1. In the top filter row, choose `Production Week = 2026-W04`.
 2. Select production lines `Line 1` and `Line 2`.
 3. Keep grouping as `By production line and issue type`.
 4. Confirm:
@@ -92,7 +105,7 @@ If `DATABASE_URL` is not set in your shell, paste it into the sidebar field in t
 
 ## How To Run Tests
 
-Set `DATABASE_URL` to a dedicated test database (tests rebuild schema):
+Set `DATABASE_URL` (or `.env`) to a dedicated test database (tests rebuild schema):
 
 ```bash
 pytest -q
@@ -107,7 +120,7 @@ GitHub Actions CI is defined in `.github/workflows/ci.yml` and runs `pytest` aga
 
 ## Acceptance Criteria Mapping
 
-- AC1/AC2: Week and multi-line selectors in sidebar.
+- AC1/AC2: Week and multi-line selectors in the main filter row.
 - AC3: Changing selectors re-queries all result sets.
 - AC4: Same selection returns identical deterministic results.
 - AC5: All issue analytics SQL reads from `issue_occurrences`.
