@@ -18,12 +18,19 @@ Complexity:
 from __future__ import annotations
 
 import io
+import sys
 from pathlib import Path
 
 import pandas as pd
 import pandas.testing as pdt
 import psycopg
 import pytest
+
+# Ensure repository root is importable for `from app ...` in all runners.
+# Time complexity: O(1); space complexity: O(1).
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from app.db import resolve_database_url
 from app.queries import (

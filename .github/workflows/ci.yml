@@ -27,6 +27,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/operations_metrics
+      PYTHONPATH: ${{ github.workspace }}
 
     steps:
       - name: Checkout
@@ -44,4 +45,3 @@ jobs:
 
       - name: Run acceptance tests
         run: pytest -q
-
