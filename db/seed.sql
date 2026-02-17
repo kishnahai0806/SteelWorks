@@ -247,12 +247,50 @@ BEGIN
     ship_date, calendar_week_id, lot_id, sales_order_id, destination_state,
     carrier_id, bol_number, tracking_or_pro, qty_shipped, ship_status,
     hold_reason, shipping_notes
-  ) VALUES
-    (DATE '2026-01-17', v_week_w03, v_lot_1001, v_so_58689, 'IN', v_carrier_ups,   'BOL-0001', '1Z999', 500, 'partial', NULL, 'First partial ship.'),
-    (DATE '2026-01-18', v_week_w03, v_lot_1001, v_so_58689, 'IN', v_carrier_ups,   'BOL-0002', '1Z998', 450, 'shipped', NULL, 'Completed shipment.'),
-    (DATE '2026-01-18', v_week_w03, v_lot_1002, v_so_52588, 'IL', NULL,           NULL,       NULL,      0, 'on_hold', 'Quality hold', 'Waiting for release.'),
-    (DATE '2026-01-25', v_week_w04, v_lot_3001, v_so_52588, 'IN', v_carrier_fedex, 'BOL-0100', 'FDX123', 0, 'backordered', 'Customer requested delay', 'No inventory to ship.')
-  ON CONFLICT DO NOTHING;
+  )
+  SELECT
+    src.ship_date,
+    src.calendar_week_id,
+    src.lot_id,
+    src.sales_order_id,
+    src.destination_state,
+    src.carrier_id,
+    src.bol_number,
+    src.tracking_or_pro,
+    src.qty_shipped,
+    src.ship_status,
+    src.hold_reason,
+    src.shipping_notes
+  FROM (
+    VALUES
+      (DATE '2026-01-17', v_week_w03, v_lot_1001, v_so_58689, 'IN', v_carrier_ups,   'BOL-0001', '1Z999', 500, 'partial', NULL, 'First partial ship.'),
+      (DATE '2026-01-18', v_week_w03, v_lot_1001, v_so_58689, 'IN', v_carrier_ups,   'BOL-0002', '1Z998', 450, 'shipped', NULL, 'Completed shipment.'),
+      (DATE '2026-01-18', v_week_w03, v_lot_1002, v_so_52588, 'IL', NULL,            NULL,       NULL,      0, 'on_hold', 'Quality hold', 'Waiting for release.'),
+      (DATE '2026-01-25', v_week_w04, v_lot_3001, v_so_52588, 'IN', v_carrier_fedex, 'BOL-0100', 'FDX123', 0, 'backordered', 'Customer requested delay', 'No inventory to ship.')
+  ) AS src(
+    ship_date,
+    calendar_week_id,
+    lot_id,
+    sales_order_id,
+    destination_state,
+    carrier_id,
+    bol_number,
+    tracking_or_pro,
+    qty_shipped,
+    ship_status,
+    hold_reason,
+    shipping_notes
+  )
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM shipments s
+    WHERE s.ship_date = src.ship_date
+      AND s.lot_id = src.lot_id
+      AND s.sales_order_id = src.sales_order_id
+      AND COALESCE(s.bol_number, '') = COALESCE(src.bol_number, '')
+      AND s.ship_status = src.ship_status
+      AND s.qty_shipped = src.qty_shipped
+  );
 
 END $$;
 

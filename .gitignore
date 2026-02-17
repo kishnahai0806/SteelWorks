@@ -1,0 +1,14 @@
+# Python virtual environments and caches
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# Streamlit local config and secrets
+.streamlit/secrets.toml
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+

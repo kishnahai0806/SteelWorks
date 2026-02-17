@@ -1,164 +1,135 @@
-# Operations Issue Metrics Dashboard
+﻿# Operations Issue Metrics Dashboard
 
-A small PostgreSQL + Python dashboard that implements the **Operations Analyst** user story:
+Implements the Operations Analyst user story:
 
 > As an operations analyst, I want to view consistent, reliable issue metrics by week and production line, and clearly see which lots are affected, so that I can respond quickly and confidently to leadership inquiries without rework or manual reconciliation.
 
-This repo contains:
+## Project Description
 
-- **PostgreSQL physical schema**: `db/schema.sql`
-- **Seed data**: `db/seed.sql`
-- **Sample SQL queries**: `db/sample_queries.sql`
-- **Streamlit app**: `app/main.py`
-- **Automated tests (pytest)**: `tests/test_acceptance_criteria.py`
+This project provides:
 
----
+- A PostgreSQL schema in `db/schema.sql` with an authoritative analytics view: `issue_occurrences`.
+- Seed data in `db/seed.sql` across multiple weeks, lines, lots, issue types, and shipment context.
+- A Streamlit dashboard in `app/main.py` for filtering, grouping, and exporting issue metrics.
+- Integration tests in `tests/test_acceptance_criteria.py` that validate AC1-AC11.
 
-## Project description
+All issue metrics shown in UI and tests are derived from `issue_occurrences` to enforce a single source of truth.
 
-The core idea is to make issue reporting **consistent** and **auditable**:
+## How To Run / Build
 
-- All issue metrics come from a single authoritative source in the database: the **view** `issue_occurrences`.
-- The UI filters by **production week** and **one or more production lines**.
-- The UI shows:
-  - an **Issue Summary** (counts by issue type, optionally grouped by line)
-  - an **Affected Lots** list (each lot + issue count + issue types)
-- Exports are generated from the same tables shown on-screen (so exported data matches the UI).
+### 1) Prerequisites
 
----
+- Python 3.10+ (tested with 3.13 locally and 3.11 in CI)
+- A PostgreSQL database URL (Render recommended)
 
-## Tech stack
+### 2) Configure database connection
 
-- PostgreSQL (Render-managed)
-- Python 3.10+
-- Streamlit (UI)
-- psycopg (Postgres driver)
-- pandas (tables + CSV export)
-- pytest (tests)
-
----
-
-## How to run / build
-
-### 1) Create a Render PostgreSQL instance
-
-1. In Render, create a **PostgreSQL** service.
-2. Copy the **External Database URL**.
-   - It usually looks like: `postgresql://user:pass@host:5432/dbname?sslmode=require`
-
-### 2) Apply schema + seed data
-
-From your repo root:
-
-```bash
-# Export DATABASE_URL for your terminal session
-export DATABASE_URL='postgresql://...your_render_url...?sslmode=require'
-
-# Apply schema
-psql "$DATABASE_URL" -f db/schema.sql
-
-# Insert sample data
-psql "$DATABASE_URL" -f db/seed.sql
-```
-
-> Windows PowerShell:
+PowerShell:
 
 ```powershell
-$env:DATABASE_URL = "postgresql://...your_render_url...?sslmode=require"
-psql $env:DATABASE_URL -f db/schema.sql
-psql $env:DATABASE_URL -f db/seed.sql
+$env:DATABASE_URL = "postgresql://user:password@host:5432/dbname?sslmode=require"
 ```
 
-### 3) Run the Streamlit app
+Bash:
+
+```bash
+export DATABASE_URL="postgresql://user:password@host:5432/dbname?sslmode=require"
+```
+
+### 3) Install dependencies
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+# macOS/Linux
+# source .venv/bin/activate
 pip install -r requirements.txt
-
-# Run the dashboard
-streamlit run app/main.py
 ```
 
-The app will open in your browser. Paste your `DATABASE_URL` in the sidebar if it isn't already in your environment.
-
----
-
-## Usage examples
-
-### Example: View issue totals for Week 2026-W03, Lines 1 + 4
-
-1. Select **Production Week** = `2026-W03`.
-2. Select **Production Lines** = `Line 1`, `Line 4`.
-3. Confirm:
-   - **Issue Summary** shows deterministic counts.
-   - **Affected Lots** shows `lot_code`, `issue_count`, and `issue_types`.
-4. Click:
-   - **Download issue summary (CSV)**
-   - **Download affected lots (CSV)**
-
-### Example: Export from SQL directly (psql)
-
-The `db/sample_queries.sql` file includes export-friendly queries and `\copy` examples.
-
----
-
-## How to run tests
-
-Tests validate the Acceptance Criteria against a real database.
-
-### Local
+### 4) Apply schema + seed data to Render Postgres
 
 ```bash
-export DATABASE_URL='postgresql://...your_render_url...?sslmode=require'
-pytest -q
+python scripts/bootstrap_render_db.py
 ```
 
-### GitHub Actions (optional)
-
-This project includes a workflow that spins up a temporary Postgres container, applies `schema.sql` + `seed.sql`, then runs `pytest`.
-
----
-
-## Acceptance Criteria coverage
-
-- **AC1/AC2/AC3**: Week + multi-line filters in Streamlit sidebar; changing either triggers a rerun.
-- **AC4**: Deterministic queries; repeated runs with the same parameters return identical results (tested).
-- **AC5**: All issue metrics come from `issue_occurrences` view.
-- **AC6/AC7**: Affected lots list shows `lot_code`, `issue_count`, `issue_types`.
-- **AC8**: Filtering and optional grouping by line; no manual calculations.
-- **AC9**: UI validation panel ensures grouped totals equal raw totals.
-- **AC10/AC11**: CSV exports come directly from the displayed DataFrames.
-
----
-
-## AI code review (potential issues / improvements)
-
-This code is intentionally simple for an MVP, but here are the main things to watch:
-
-1. **Secrets handling**
-   - Don’t commit your Render `DATABASE_URL`.
-   - Use `.env` locally and set env vars in Render.
-
-2. **Connection pooling**
-   - The app opens a new connection per query. For heavier usage, add a small pool (e.g., `psycopg_pool`) or caching.
-
-3. **Very large datasets**
-   - For large tables, consider pagination for the drill-down and add more indexes based on real query plans.
-
-4. **Authorization**
-   - This MVP assumes trusted internal access. If exposed publicly, add auth.
-
----
-
-## Repo checklist (what to commit)
+This applies, in order:
 
 - `db/schema.sql`
 - `db/seed.sql`
-- `db/sample_queries.sql`
-- `app/` (all Python files)
-- `tests/`
-- `requirements.txt`
-- `README.md`
-- `.github/workflows/ci.yml` (optional)
 
+### 5) Run dashboard
+
+```bash
+streamlit run app/main.py
+```
+
+If `DATABASE_URL` is not set in your shell, paste it into the sidebar field in the app.
+
+## Usage Examples
+
+### Example 1: Filter and compare issue metrics
+
+1. In sidebar, choose `Production Week = 2026-W04`.
+2. Select production lines `Line 1` and `Line 2`.
+3. Keep grouping as `By production line and issue type`.
+4. Confirm:
+   - issue summary table updates,
+   - affected lots table updates,
+   - grouped and raw totals match.
+
+### Example 2: Grouped reporting for leadership
+
+1. Keep same week + lines.
+2. Change grouping to `By issue type only`.
+3. Compare totals against previous view; totals should remain consistent.
+
+### Example 3: Export exactly what is on screen
+
+1. Click `Download Issue Summary (CSV)`.
+2. Click `Download Affected Lots (CSV)`.
+3. Exported CSV files match the displayed tables row-for-row and column-for-column.
+
+## How To Run Tests
+
+Set `DATABASE_URL` to a dedicated test database (tests rebuild schema):
+
+```bash
+pytest -q
+```
+
+What tests do:
+
+- Re-apply `db/schema.sql` and `db/seed.sql` at session start.
+- Validate AC1-AC11 against real DB results.
+
+GitHub Actions CI is defined in `.github/workflows/ci.yml` and runs `pytest` against a temporary Postgres container.
+
+## Acceptance Criteria Mapping
+
+- AC1/AC2: Week and multi-line selectors in sidebar.
+- AC3: Changing selectors re-queries all result sets.
+- AC4: Same selection returns identical deterministic results.
+- AC5: All issue analytics SQL reads from `issue_occurrences`.
+- AC6/AC7: Affected lots table includes `lot_code`, `issue_count`, `issue_types`.
+- AC8: Summary supports grouped and ungrouped output modes.
+- AC9: Grouped totals are validated against raw source counts.
+- AC10/AC11: CSV exports are generated from the exact DataFrames displayed in UI.
+
+## AI Code Review (Potential Issues)
+
+1. Connection overhead:
+   - Current implementation opens a new DB connection per query.
+   - For higher load, introduce `psycopg_pool` and request-level connection reuse.
+
+2. Large-data scaling:
+   - Current tables render fully in memory/dataframe.
+   - Add pagination and server-side LIMIT/OFFSET for large datasets.
+
+3. Test safety:
+   - Integration tests run `db/schema.sql`, which drops/recreates tables.
+   - Always run tests against a dedicated non-production database.
+
+4. Security hardening:
+   - Dashboard currently assumes trusted internal users.
+   - Add authentication and role checks before broader deployment.

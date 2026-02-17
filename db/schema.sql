@@ -4,6 +4,7 @@
 BEGIN;
 
 -- DEV ONLY: drop tables so the file can be re-run.
+DROP VIEW IF EXISTS issue_occurrences;
 DROP TABLE IF EXISTS production_issues;
 DROP TABLE IF EXISTS shipments;
 DROP TABLE IF EXISTS production_runs;
@@ -199,6 +200,7 @@ CREATE INDEX idx_production_runs_run_date ON production_runs(run_date);
 CREATE INDEX idx_production_runs_line_date ON production_runs(production_line_id, run_date);
 CREATE INDEX idx_production_runs_lot_id ON production_runs(lot_id);
 CREATE INDEX idx_production_runs_week_id ON production_runs(calendar_week_id);
+CREATE INDEX idx_production_runs_week_line_id ON production_runs(calendar_week_id, production_line_id);
 
 CREATE INDEX idx_shipments_ship_date ON shipments(ship_date);
 CREATE INDEX idx_shipments_status ON shipments(ship_status);
@@ -212,5 +214,34 @@ CREATE INDEX idx_shipments_on_hold
   WHERE ship_status = 'on_hold';
 
 CREATE INDEX idx_sales_orders_customer_id ON sales_orders(customer_id);
+
+-- ============================================================================
+-- Authoritative reporting view for the Operations Analyst user story.
+-- This is the single source of truth for issue metrics, affected lots,
+-- and exports in both the UI and test suite.
+-- ============================================================================
+CREATE OR REPLACE VIEW issue_occurrences AS
+SELECT
+  pi.production_issue_id,
+  pi.production_run_id,
+  pr.run_date,
+  pr.calendar_week_id,
+  cw.week_label,
+  pr.production_line_id,
+  pl.line_name,
+  pr.lot_id,
+  l.lot_code,
+  l.part_id,
+  p.part_number,
+  pi.issue_type_id,
+  it.issue_type_name,
+  pi.supervisor_notes
+FROM production_issues pi
+JOIN production_runs pr ON pr.production_run_id = pi.production_run_id
+JOIN calendar_weeks cw ON cw.calendar_week_id = pr.calendar_week_id
+JOIN production_lines pl ON pl.production_line_id = pr.production_line_id
+JOIN lots l ON l.lot_id = pr.lot_id
+JOIN parts p ON p.part_id = l.part_id
+JOIN issue_types it ON it.issue_type_id = pi.issue_type_id;
 
 COMMIT;
