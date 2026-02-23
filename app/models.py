@@ -19,4 +19,3 @@ class IssueFilterSelection:
 
     calendar_week_id: int
     production_line_ids: list[int]
-

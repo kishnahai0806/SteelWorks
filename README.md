@@ -18,3 +18,35 @@ All other tests are explicit stubs (`@pytest.mark.skip`) and no integration test
 ```bash
 python -m pytest -q
 ```
+
+## Developer quality checks
+
+Install dev tooling:
+
+```bash
+python -m pip install -r requirements-dev.txt
+```
+
+Run formatter:
+
+```bash
+python -m ruff format app tests
+```
+
+Run linter:
+
+```bash
+python -m ruff check .
+```
+
+Run static type checker:
+
+```bash
+python -m mypy
+```
+
+Run tests with coverage:
+
+```bash
+python -m pytest --cov=app --cov-report=term-missing -q
+```

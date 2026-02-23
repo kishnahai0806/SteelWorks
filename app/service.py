@@ -61,11 +61,12 @@ class OperationsMetricsService:
         """
         Export issue summary as CSV (AC10, AC11).
         """
-        raise NotImplementedError("Scaffold only: implement issue summary export logic.")
+        raise NotImplementedError(
+            "Scaffold only: implement issue summary export logic."
+        )
 
     def export_affected_lots_csv(self, selection: IssueFilterSelection) -> bytes:
         """
         Export affected lots as CSV (AC10, AC11).
         """
         raise NotImplementedError("Scaffold only: implement affected lot export logic.")
-

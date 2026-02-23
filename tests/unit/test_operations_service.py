@@ -32,14 +32,18 @@ def test_get_available_lines_returns_selectable_values() -> None:
     _ = service.get_available_lines()
 
 
-@pytest.mark.skip(reason="Scaffold stub: implement when issue summary logic is implemented.")
+@pytest.mark.skip(
+    reason="Scaffold stub: implement when issue summary logic is implemented."
+)
 def test_get_issue_summary_uses_selection_scope() -> None:
     service = OperationsMetricsService()
     selection = IssueFilterSelection(calendar_week_id=1, production_line_ids=[1, 2])
     _ = service.get_issue_summary(selection=selection, group_by_line=True)
 
 
-@pytest.mark.skip(reason="Scaffold stub: implement when affected lot logic is implemented.")
+@pytest.mark.skip(
+    reason="Scaffold stub: implement when affected lot logic is implemented."
+)
 def test_get_affected_lots_returns_lot_level_rows() -> None:
     service = OperationsMetricsService()
     selection = IssueFilterSelection(calendar_week_id=1, production_line_ids=[1])
@@ -58,4 +62,3 @@ def test_export_affected_lots_csv_matches_display_scope() -> None:
     service = OperationsMetricsService()
     selection = IssueFilterSelection(calendar_week_id=1, production_line_ids=[1, 2])
     _ = service.export_affected_lots_csv(selection=selection)
-

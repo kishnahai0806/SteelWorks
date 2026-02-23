@@ -1,4 +1,3 @@
 """
 Operations analytics application package.
 """
-
