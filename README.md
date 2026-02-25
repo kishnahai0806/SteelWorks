@@ -50,3 +50,27 @@ Run tests with coverage:
 ```bash
 python -m pytest --cov=app --cov-report=term-missing -q
 ```
+
+## Pre-commit checks
+
+Install git hooks:
+
+```bash
+python -m pip install -r requirements-dev.txt
+pre-commit install
+```
+
+Run all pre-commit checks manually:
+
+```bash
+pre-commit run --all-files
+```
+
+Checks include:
+
+- `ruff format`
+- `ruff check`
+- `mypy`
+- unit tests (`pytest -q tests/unit`)
+
+GitHub Actions runs the same pre-commit checks on pull request create/update.

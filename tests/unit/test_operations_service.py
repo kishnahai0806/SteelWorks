@@ -20,16 +20,22 @@ def test_normalize_line_ids_deduplicates_and_sorts() -> None:
     assert service.normalize_line_ids([4, 1, 4, 2, 1]) == [1, 2, 4]
 
 
-@pytest.mark.skip(reason="Scaffold stub: implement when week retrieval is implemented.")
 def test_get_available_weeks_returns_selectable_values() -> None:
     service = OperationsMetricsService()
-    _ = service.get_available_weeks()
+    weeks = service.get_available_weeks()
+    assert weeks == [
+        {"calendar_week_id": 1, "week_label": "2026-W03"},
+        {"calendar_week_id": 2, "week_label": "2026-W04"},
+    ]
 
 
-@pytest.mark.skip(reason="Scaffold stub: implement when line retrieval is implemented.")
 def test_get_available_lines_returns_selectable_values() -> None:
     service = OperationsMetricsService()
-    _ = service.get_available_lines()
+    lines = service.get_available_lines()
+    assert lines == [
+        {"production_line_id": 1, "line_name": "Line 1", "is_active": True},
+        {"production_line_id": 3, "line_name": "Line 4", "is_active": True},
+    ]
 
 
 @pytest.mark.skip(
