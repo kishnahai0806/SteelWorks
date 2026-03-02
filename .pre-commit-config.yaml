@@ -2,10 +2,10 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.2
     hooks:
+      - id: ruff
+        args: [--fix, app, tests, scripts]
       - id: ruff-format
-        args: [app, tests]
-      - id: ruff-check
-        args: [--fix, app, tests]
+        args: [app, tests, scripts]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.19.1
@@ -22,3 +22,9 @@ repos:
         language: system
         entry: python -m pytest -q tests/unit
         pass_filenames: false
+      - id: license-check-gpl
+        name: block copyleft licenses (GPL/AGPL/LGPL) in runtime deps
+        language: system
+        entry: python scripts/check_gpl_licenses.py
+        pass_filenames: false
+        always_run: true
