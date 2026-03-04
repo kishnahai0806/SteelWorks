@@ -20,6 +20,7 @@ Streamlit dashboard for weekly manufacturing issue metrics with:
   - `DATABASE_URL=postgresql+pg8000://...`
 - `.env.test` (test DB URL):
   - `TEST_DATABASE_URL=postgresql+pg8000://postgres:postgres@127.0.0.1:55432/markdown_demo_test`
+  - `DATABASE_URL_TEST=...` is also accepted for slide compatibility.
 
 Examples are included in `.env.example` and `.env.test.example`.
 

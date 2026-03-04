@@ -97,7 +97,13 @@ def _reset_schema_and_seed(psycopg_url: str) -> None:
 @pytest.fixture(scope="session")
 def test_database_url() -> str:
     load_dotenv(REPO_ROOT / ".env.test", override=False)
-    return os.getenv("TEST_DATABASE_URL", DEFAULT_TEST_DATABASE_URL).strip()
+    preferred = os.getenv("TEST_DATABASE_URL", "").strip()
+    slide_name = os.getenv("DATABASE_URL_TEST", "").strip()
+    if preferred:
+        return preferred
+    if slide_name:
+        return slide_name
+    return DEFAULT_TEST_DATABASE_URL
 
 
 @pytest.fixture(scope="session")
