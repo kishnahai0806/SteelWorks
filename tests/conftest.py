@@ -17,11 +17,9 @@ from app.repository import OperationsRepository
 from app.service import OperationsMetricsService
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_TEST_DATABASE_URL = (
-    "postgresql+pg8000://postgres:postgres@127.0.0.1:55432/markdown_demo_test"
-)
-TEST_DB_CONTAINER_NAME = "markdown-demo-test-db"
-TEST_DB_DOCKER_IMAGE = "postgres:17-alpine"
+DEFAULT_TEST_DATABASE_URL = "postgresql+pg8000://devuser:devpass@127.0.0.1:5433/testdb"
+TEST_DB_CONTAINER_NAME = "postgres18"
+TEST_DB_DOCKER_IMAGE = "postgres:18"
 
 
 def _to_psycopg_url(sqlalchemy_url: str) -> str:
@@ -59,13 +57,13 @@ def _start_local_postgres_container() -> None:
             "--name",
             TEST_DB_CONTAINER_NAME,
             "-e",
-            "POSTGRES_USER=postgres",
+            "POSTGRES_USER=devuser",
             "-e",
-            "POSTGRES_PASSWORD=postgres",
+            "POSTGRES_PASSWORD=devpass",
             "-e",
-            "POSTGRES_DB=markdown_demo_test",
+            "POSTGRES_DB=testdb",
             "-p",
-            "55432:5432",
+            "5433:5432",
             "-d",
             TEST_DB_DOCKER_IMAGE,
         ],
@@ -111,8 +109,8 @@ def prepared_test_database(test_database_url: str) -> Generator[str]:
     parsed = urlparse(test_database_url)
     local_managed_db = (
         parsed.hostname in {"localhost", "127.0.0.1"}
-        and parsed.port == 55432
-        and parsed.path.strip("/") == "markdown_demo_test"
+        and parsed.port == 5433
+        and parsed.path.strip("/") == "testdb"
     )
 
     # This fixture drops/recreates schema; protect against accidental prod URLs.

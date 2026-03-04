@@ -19,7 +19,7 @@ Streamlit dashboard for weekly manufacturing issue metrics with:
 - `.env` (production DB URL from Render):
   - `DATABASE_URL=postgresql+pg8000://...`
 - `.env.test` (test DB URL):
-  - `TEST_DATABASE_URL=postgresql+pg8000://postgres:postgres@127.0.0.1:55432/markdown_demo_test`
+  - `TEST_DATABASE_URL=postgresql+pg8000://devuser:devpass@127.0.0.1:5433/testdb`
   - `DATABASE_URL_TEST=...` is also accepted for slide compatibility.
 
 Examples are included in `.env.example` and `.env.test.example`.
@@ -48,7 +48,7 @@ poetry run pytest -q
 Integration/e2e tests:
 
 - use `TEST_DATABASE_URL` from `.env.test`
-- automatically start local Docker Postgres if URL is `127.0.0.1:55432/markdown_demo_test`
+- automatically start local Docker Postgres (`postgres:18`) if URL is `127.0.0.1:5433/testdb`
 - reset schema + seed data before tests
 
 ## Run Pre-commit
