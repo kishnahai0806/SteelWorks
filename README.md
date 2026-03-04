@@ -1,76 +1,58 @@
-﻿# Operations Issue Metrics (Develop Scaffold)
+# Operations Issue Metrics
 
-This `develop` branch contains only minimal scaffolding for the operations user story:
+Streamlit dashboard for weekly manufacturing issue metrics with:
 
-- `app/models.py`: domain selection model (`IssueFilterSelection`)
-- `app/service.py`: service class with function stubs
-- `tests/unit/test_operations_service.py`: unit test stubs
+- production week and line filters
+- issue summary reporting
+- affected lots reporting
+- CSV exports
+- unit, integration, and Playwright end-to-end tests
 
-Implemented now:
+## Prerequisites
 
-- First unit test: `test_normalize_line_ids_deduplicates_and_sorts`
-- Related business logic: `OperationsMetricsService.normalize_line_ids`
+- Python 3.13
+- Poetry
+- Docker Desktop (running)
 
-All other tests are explicit stubs (`@pytest.mark.skip`) and no integration tests are included.
+## Environment Files
 
-## Run unit tests
+- `.env` (production DB URL from Render):
+  - `DATABASE_URL=postgresql+pg8000://...`
+- `.env.test` (test DB URL):
+  - `TEST_DATABASE_URL=postgresql+pg8000://postgres:postgres@127.0.0.1:55432/markdown_demo_test`
+
+Examples are included in `.env.example` and `.env.test.example`.
+
+## Install
 
 ```bash
-python -m pytest -q
+poetry install
+poetry run playwright install
 ```
 
-## Developer quality checks
+## Run Streamlit App
 
-Install dev tooling:
+```bash
+poetry run streamlit run streamlit_app.py
+```
+
+## Run Tests
+
+Run everything (unit + integration + e2e):
+
+```bash
+poetry run pytest -q
+```
+
+Integration/e2e tests:
+
+- use `TEST_DATABASE_URL` from `.env.test`
+- automatically start local Docker Postgres if URL is `127.0.0.1:55432/markdown_demo_test`
+- reset schema + seed data before tests
+
+## Run Pre-commit
 
 ```bash
 python -m pip install -r requirements-dev.txt
-```
-
-Run formatter:
-
-```bash
-python -m ruff format app tests
-```
-
-Run linter:
-
-```bash
-python -m ruff check .
-```
-
-Run static type checker:
-
-```bash
-python -m mypy
-```
-
-Run tests with coverage:
-
-```bash
-python -m pytest --cov=app --cov-report=term-missing -q
-```
-
-## Pre-commit checks
-
-Install git hooks:
-
-```bash
-python -m pip install -r requirements-dev.txt
-pre-commit install
-```
-
-Run all pre-commit checks manually:
-
-```bash
 pre-commit run --all-files
 ```
-
-Checks include:
-
-- `ruff format`
-- `ruff check`
-- `mypy`
-- unit tests (`pytest -q tests/unit`)
-
-GitHub Actions runs the same pre-commit checks on pull request create/update.

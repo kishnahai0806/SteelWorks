@@ -4,6 +4,7 @@
 BEGIN;
 
 -- DEV ONLY: drop tables so the file can be re-run.
+DROP VIEW IF EXISTS issue_occurrences;
 DROP TABLE IF EXISTS production_issues;
 DROP TABLE IF EXISTS shipments;
 DROP TABLE IF EXISTS production_runs;
@@ -212,5 +213,21 @@ CREATE INDEX idx_shipments_on_hold
   WHERE ship_status = 'on_hold';
 
 CREATE INDEX idx_sales_orders_customer_id ON sales_orders(customer_id);
+
+-- Authoritative issue occurrence view used by reporting queries.
+CREATE VIEW issue_occurrences AS
+SELECT
+  pi.production_issue_id,
+  pi.issue_type_id,
+  it.issue_type_name,
+  pr.production_run_id,
+  pr.run_date,
+  pr.calendar_week_id,
+  pr.production_line_id,
+  pr.lot_id,
+  pi.supervisor_notes
+FROM production_issues pi
+JOIN production_runs pr ON pr.production_run_id = pi.production_run_id
+JOIN issue_types it ON it.issue_type_id = pi.issue_type_id;
 
 COMMIT;

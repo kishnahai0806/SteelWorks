@@ -1,12 +1,6 @@
-"""
-Unit test scaffolding for operations service behavior.
-
-These tests are intentionally minimal stubs except for the first implemented test.
-"""
+"""Unit tests for operations service behavior without a real database."""
 
 from __future__ import annotations
-
-import pytest
 
 from app.models import IssueFilterSelection
 from app.service import OperationsMetricsService
@@ -38,33 +32,68 @@ def test_get_available_lines_returns_selectable_values() -> None:
     ]
 
 
-@pytest.mark.skip(
-    reason="Scaffold stub: implement when issue summary logic is implemented."
-)
 def test_get_issue_summary_uses_selection_scope() -> None:
     service = OperationsMetricsService()
-    selection = IssueFilterSelection(calendar_week_id=1, production_line_ids=[1, 2])
-    _ = service.get_issue_summary(selection=selection, group_by_line=True)
+    selection = IssueFilterSelection(calendar_week_id=1, production_line_ids=[1, 2, 3])
+    summary = service.get_issue_summary(selection=selection, group_by_line=True)
+    assert summary == [
+        {
+            "week_label": "2026-W03",
+            "line_name": "Line 1",
+            "issue_type_name": "material_shortage",
+            "issue_count": 1,
+        },
+        {
+            "week_label": "2026-W03",
+            "line_name": "Line 1",
+            "issue_type_name": "tool_wear",
+            "issue_count": 1,
+        },
+        {
+            "week_label": "2026-W03",
+            "line_name": "Line 4",
+            "issue_type_name": "sensor_fault",
+            "issue_count": 1,
+        },
+    ]
 
 
-@pytest.mark.skip(
-    reason="Scaffold stub: implement when affected lot logic is implemented."
-)
 def test_get_affected_lots_returns_lot_level_rows() -> None:
     service = OperationsMetricsService()
     selection = IssueFilterSelection(calendar_week_id=1, production_line_ids=[1])
-    _ = service.get_affected_lots(selection=selection)
+    lots = service.get_affected_lots(selection=selection)
+    assert lots == [
+        {
+            "week_label": "2026-W03",
+            "line_name": "Line 1",
+            "lot_code": "LOT-1001",
+            "issue_count": 1,
+            "issue_types": "tool_wear",
+        },
+        {
+            "week_label": "2026-W03",
+            "line_name": "Line 1",
+            "lot_code": "LOT-1002",
+            "issue_count": 1,
+            "issue_types": "material_shortage",
+        },
+    ]
 
 
-@pytest.mark.skip(reason="Scaffold stub: implement when export logic is implemented.")
 def test_export_issue_summary_csv_matches_display_scope() -> None:
     service = OperationsMetricsService()
     selection = IssueFilterSelection(calendar_week_id=1, production_line_ids=[1, 2])
-    _ = service.export_issue_summary_csv(selection=selection, group_by_line=False)
+    payload = service.export_issue_summary_csv(selection=selection, group_by_line=False)
+    text = payload.decode("utf-8")
+    assert "week_label,issue_type_name,issue_count" in text
+    assert "2026-W03,material_shortage,1" in text
+    assert "2026-W03,tool_wear,1" in text
 
 
-@pytest.mark.skip(reason="Scaffold stub: implement when export logic is implemented.")
 def test_export_affected_lots_csv_matches_display_scope() -> None:
     service = OperationsMetricsService()
     selection = IssueFilterSelection(calendar_week_id=1, production_line_ids=[1, 2])
-    _ = service.export_affected_lots_csv(selection=selection)
+    payload = service.export_affected_lots_csv(selection=selection)
+    text = payload.decode("utf-8")
+    assert "week_label,line_name,lot_code,issue_count,issue_types" in text
+    assert "2026-W03,Line 1,LOT-1001,1,tool_wear" in text
