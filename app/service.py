@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import csv
 import io
+import logging
 from collections import defaultdict
 from typing import Any, Protocol
 
 from app.models import IssueFilterSelection
+
+logger = logging.getLogger(__name__)
 
 
 class OperationsDataSource(Protocol):
@@ -92,6 +95,10 @@ class OperationsMetricsService:
                 "issue_type_name": "quality_hold",
             },
         ]
+        logger.debug(
+            "OperationsMetricsService initialized (repository=%s)",
+            type(repository).__name__ if repository is not None else "fallback",
+        )
 
     def normalize_line_ids(self, line_ids: list[int]) -> list[int]:
         """Normalize line IDs for deterministic query behavior."""
@@ -100,15 +107,23 @@ class OperationsMetricsService:
     def get_available_weeks(self) -> list[dict[str, Any]]:
         """Return selectable production weeks."""
         if self._repository is not None:
-            return self._repository.get_available_weeks()
-        return sorted(self._weeks, key=lambda week: int(week["calendar_week_id"]))
+            weeks = self._repository.get_available_weeks()
+            logger.debug("Loaded %d weeks from repository", len(weeks))
+            return weeks
+        weeks = sorted(self._weeks, key=lambda week: int(week["calendar_week_id"]))
+        logger.debug("Loaded %d weeks from fallback data", len(weeks))
+        return weeks
 
     def get_available_lines(self) -> list[dict[str, Any]]:
         """Return selectable active production lines."""
         if self._repository is not None:
-            return self._repository.get_available_lines()
+            lines = self._repository.get_available_lines()
+            logger.debug("Loaded %d lines from repository", len(lines))
+            return lines
         active_lines = [line for line in self._lines if bool(line["is_active"])]
-        return sorted(active_lines, key=lambda line: str(line["line_name"]))
+        lines = sorted(active_lines, key=lambda line: str(line["line_name"]))
+        logger.debug("Loaded %d lines from fallback data", len(lines))
+        return lines
 
     def get_issue_summary(
         self,
@@ -118,20 +133,42 @@ class OperationsMetricsService:
         """Return issue totals for the selected week and line scope."""
         normalized_line_ids = self.normalize_line_ids(selection.production_line_ids)
         if not normalized_line_ids:
+            logger.info(
+                "Issue summary requested with no selected lines (week_id=%s)",
+                selection.calendar_week_id,
+            )
             return []
 
         if self._repository is not None:
-            return self._repository.get_issue_summary(
+            summary = self._repository.get_issue_summary(
                 week_id=selection.calendar_week_id,
                 line_ids=normalized_line_ids,
                 group_by_line=group_by_line,
             )
+            logger.info(
+                "Issue summary loaded from repository "
+                "(week_id=%s line_count=%d group_by_line=%s rows=%d)",
+                selection.calendar_week_id,
+                len(normalized_line_ids),
+                group_by_line,
+                len(summary),
+            )
+            return summary
 
         filtered = self._filter_fallback_issue_rows(
             week_id=selection.calendar_week_id,
             line_ids=normalized_line_ids,
         )
-        return self._summarize_fallback_issues(filtered, group_by_line=group_by_line)
+        summary = self._summarize_fallback_issues(filtered, group_by_line=group_by_line)
+        logger.info(
+            "Issue summary generated from fallback data "
+            "(week_id=%s line_count=%d group_by_line=%s rows=%d)",
+            selection.calendar_week_id,
+            len(normalized_line_ids),
+            group_by_line,
+            len(summary),
+        )
+        return summary
 
     def get_affected_lots(
         self, selection: IssueFilterSelection
@@ -139,13 +176,25 @@ class OperationsMetricsService:
         """Return affected lots for the selected week and line scope."""
         normalized_line_ids = self.normalize_line_ids(selection.production_line_ids)
         if not normalized_line_ids:
+            logger.info(
+                "Affected lots requested with no selected lines (week_id=%s)",
+                selection.calendar_week_id,
+            )
             return []
 
         if self._repository is not None:
-            return self._repository.get_affected_lots(
+            lots = self._repository.get_affected_lots(
                 week_id=selection.calendar_week_id,
                 line_ids=normalized_line_ids,
             )
+            logger.info(
+                "Affected lots loaded from repository "
+                "(week_id=%s line_count=%d rows=%d)",
+                selection.calendar_week_id,
+                len(normalized_line_ids),
+                len(lots),
+            )
+            return lots
 
         filtered = self._filter_fallback_issue_rows(
             week_id=selection.calendar_week_id,
@@ -171,10 +220,10 @@ class OperationsMetricsService:
             existing["issue_count"] = int(existing["issue_count"]) + 1
             existing["issue_types"].add(str(row["issue_type_name"]))
 
-        lots: list[dict[str, Any]] = []
+        fallback_lots: list[dict[str, Any]] = []
         for key in sorted(lot_groups):
             grouped = lot_groups[key]
-            lots.append(
+            fallback_lots.append(
                 {
                     "week_label": grouped["week_label"],
                     "line_name": grouped["line_name"],
@@ -183,7 +232,14 @@ class OperationsMetricsService:
                     "issue_types": ", ".join(sorted(grouped["issue_types"])),
                 }
             )
-        return lots
+        logger.info(
+            "Affected lots generated from fallback data "
+            "(week_id=%s line_count=%d rows=%d)",
+            selection.calendar_week_id,
+            len(normalized_line_ids),
+            len(fallback_lots),
+        )
+        return fallback_lots
 
     def export_issue_summary_csv(
         self,
@@ -196,7 +252,14 @@ class OperationsMetricsService:
         if group_by_line:
             fieldnames.append("line_name")
         fieldnames.extend(["issue_type_name", "issue_count"])
-        return self._to_csv_bytes(rows=rows, fieldnames=fieldnames)
+        payload = self._to_csv_bytes(rows=rows, fieldnames=fieldnames)
+        logger.debug(
+            "Exported issue summary CSV (week_id=%s rows=%d bytes=%d)",
+            selection.calendar_week_id,
+            len(rows),
+            len(payload),
+        )
+        return payload
 
     def export_affected_lots_csv(self, selection: IssueFilterSelection) -> bytes:
         """Export affected lots to CSV bytes for download."""
@@ -208,7 +271,14 @@ class OperationsMetricsService:
             "issue_count",
             "issue_types",
         ]
-        return self._to_csv_bytes(rows=rows, fieldnames=fieldnames)
+        payload = self._to_csv_bytes(rows=rows, fieldnames=fieldnames)
+        logger.debug(
+            "Exported affected lots CSV (week_id=%s rows=%d bytes=%d)",
+            selection.calendar_week_id,
+            len(rows),
+            len(payload),
+        )
+        return payload
 
     def _filter_fallback_issue_rows(
         self, week_id: int, line_ids: list[int]

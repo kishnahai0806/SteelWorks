@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from app.models import IssueFilterSelection
 from app.service import OperationsMetricsService
 
@@ -97,3 +99,26 @@ def test_export_affected_lots_csv_matches_display_scope() -> None:
     text = payload.decode("utf-8")
     assert "week_label,line_name,lot_code,issue_count,issue_types" in text
     assert "2026-W03,Line 1,LOT-1001,1,tool_wear" in text
+
+
+def test_get_issue_summary_logs_selected_scope(caplog) -> None:
+    service = OperationsMetricsService()
+    selection = IssueFilterSelection(calendar_week_id=1, production_line_ids=[3, 1])
+
+    with caplog.at_level(logging.INFO):
+        service.get_issue_summary(selection=selection, group_by_line=True)
+
+    assert "Issue summary generated from fallback data" in caplog.text
+    assert "week_id=1" in caplog.text
+    assert "line_count=2" in caplog.text
+
+
+def test_get_affected_lots_logs_when_no_lines_selected(caplog) -> None:
+    service = OperationsMetricsService()
+    selection = IssueFilterSelection(calendar_week_id=1, production_line_ids=[])
+
+    with caplog.at_level(logging.INFO):
+        rows = service.get_affected_lots(selection=selection)
+
+    assert rows == []
+    assert "Affected lots requested with no selected lines" in caplog.text
