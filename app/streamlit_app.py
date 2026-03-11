@@ -6,6 +6,7 @@ import logging
 import os
 from typing import Any
 
+import sentry_sdk
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -29,6 +30,14 @@ def _cached_service(database_url: str) -> OperationsMetricsService:
 
 def _resolve_database_url() -> str:
     load_dotenv(dotenv_path=".env", override=False)
+    sentry_dsn = os.getenv("SENTRY_DSN", "").strip()
+    if sentry_dsn:
+        sentry_sdk.init(
+            dsn=sentry_dsn,
+            send_default_pii=False,
+            traces_sample_rate=0.0,
+            enable_logs=False,
+        )
     database_url = os.getenv("DATABASE_URL", "").strip()
     logger.debug("DATABASE_URL configured=%s", bool(database_url))
     return database_url
