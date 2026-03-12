@@ -55,3 +55,37 @@ Integration/e2e tests:
 python -m pip install -r requirements-dev.txt
 pre-commit run --all-files
 ```
+
+## Deploy on Render (Docker)
+
+1. Push your latest code to GitHub.
+2. In Render, click `New` -> `Web Service`.
+3. Connect this repository and choose branch `main`.
+4. Set `Language` to `Docker`.
+5. Under `Environment Variables`, add:
+   - `DATABASE_URL`
+   - `SENTRY_DSN`
+6. Click `Deploy Web Service`.
+7. After deploy completes, open your Render URL:
+   - `https://<your-service>.onrender.com/`
+
+Notes:
+
+- This project Docker image listens on Render's `PORT` environment variable.
+- Keep `SENTRY_DSN` unquoted when entering it in Render.
+
+## Uptime Monitoring (UptimeRobot)
+
+Use Streamlit's built-in health endpoint for checks:
+
+- `https://<your-service>.onrender.com/_stcore/health`
+
+Setup steps:
+
+1. Go to UptimeRobot and click `Start monitoring in 30 seconds`.
+2. Sign in with GitHub.
+3. Choose `HTTP/website monitoring`.
+4. Paste your health endpoint URL.
+5. Click `Create Monitor`.
+6. Send a test email notification.
+7. Click `Finish Setup`.
